@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { logout } from "./actions";
 
 const bookings = [
   { ref: "JSA-8917", facility: "Badminton Court 1", when: "2026-10-09 06:00", customer: "hcdgjcfjg", contact: "+94 77 123 4567", status: "Pending" },
@@ -24,7 +24,12 @@ export default function AdminDashboard() {
           <div className="eyebrow">JSA PLAY · MANAGEMENT</div>
           <h1>Management dashboard</h1>
         </div>
-        <div className="admin-user">Admin <Link href="/">Log out</Link></div>
+        <div className="admin-user">
+          Admin
+          <form action={logout} className="logout-form">
+            <button className="logout-link" type="submit">Log out</button>
+          </form>
+        </div>
       </header>
       <nav className="admin-tabs" aria-label="Admin navigation">
         <a className="active" href="/admin">Overview</a>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { logout } from "../actions";
 
 const initialFacilities = [
   { name: "Badminton Court 1", ground: "Independent", rate: "2,500" },
@@ -29,7 +29,12 @@ export default function FacilitiesPage() {
     <main className="admin-shell">
       <header className="admin-header">
         <div><div className="eyebrow">JSA PLAY · MANAGEMENT</div><h1>Management dashboard</h1></div>
-        <div className="admin-user">Admin <Link href="/">Log out</Link></div>
+        <div className="admin-user">
+          Admin
+          <form action={logout} className="logout-form">
+            <button className="logout-link" type="submit">Log out</button>
+          </form>
+        </div>
       </header>
       <nav className="admin-tabs" aria-label="Admin navigation">
         <a href="/admin">Overview</a><a href="#bookings">Bookings</a><a href="#schedule">Schedule</a><a className="active" href="/admin/facilities">Facilities</a><a href="#audit">Audit log</a>
