@@ -109,7 +109,7 @@ export default function AdminDashboard() {
             <div><span className={styles.activityIcon}>{String(stats.pendingBookings).padStart(2, "0")}</span><p><strong>Requests pending</strong><span>Awaiting admin review</span></p></div>
             <div><span className={`${styles.activityIcon} ${styles.activityIconGreen}`}>OK</span><p><strong>System healthy</strong><span>All services online</span></p></div>
           </div>
-          <a className={styles.viewSchedule} href="#schedule">View today&apos;s schedule</a>
+          <a className={styles.viewSchedule} href="/admin/schedule">View today&apos;s schedule</a>
         </aside>
       </section>
     </AdminShell>

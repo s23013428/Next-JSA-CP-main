@@ -18,10 +18,10 @@ type AdminShellProps = {
 
 const navigation: Array<{ label: string; href: string; section: AdminSection }> = [
   { label: "Overview", href: "/admin", section: "overview" },
-  { label: "Bookings", href: "/admin#bookings", section: "bookings" },
-  { label: "Schedule", href: "/admin#schedule", section: "schedule" },
+  { label: "Bookings", href: "/admin/bookings", section: "bookings" },
+  { label: "Schedule", href: "/admin/schedule", section: "schedule" },
   { label: "Facilities", href: "/admin/facilities", section: "facilities" },
-  { label: "Audit log", href: "/admin#audit", section: "audit" },
+  { label: "Audit log", href: "/admin/audit", section: "audit" },
 ];
 
 function NavIcon({ section }: { section: AdminSection }) {

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { ADMIN_SESSION_COOKIE, createAdminSession, requireAdmin, revokeCurrentSession, validateAdminCredentials } from "@/app/lib/admin-auth";
 import { db, transaction } from "@/app/lib/db";
-import { getAdminFacilities, getDashboardStats, getPendingBookings } from "@/app/lib/data";
+import { getAdminFacilities, getAuditLogs, getBookings, getDashboardStats, getPendingBookings, getSchedule } from "@/app/lib/data";
 
 export type LoginState = { error:string };
 export type ActionState = { ok:boolean; message:string };
@@ -29,6 +29,22 @@ export async function loadDashboard() {
 export async function loadFacilities() {
   const admin = await requireAdmin();
   return { admin, facilities:await getAdminFacilities() };
+}
+
+export async function loadBookings(status = "all") {
+  const admin = await requireAdmin();
+  return { admin, bookings:await getBookings(status) };
+}
+
+export async function loadSchedule(date: string) {
+  const admin = await requireAdmin();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { admin, facilities:[] };
+  return { admin, facilities:await getSchedule(date) };
+}
+
+export async function loadAuditLog() {
+  const admin = await requireAdmin();
+  return { admin, logs:await getAuditLogs() };
 }
 
 export async function reviewBooking(bookingId: number, decision: "confirmed" | "rejected"): Promise<ActionState> {

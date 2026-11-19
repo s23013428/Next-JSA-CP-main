@@ -31,3 +31,22 @@ export type FacilityAdminView = {
   rate: string;
   status: "active" | "maintenance" | "inactive";
 };
+
+export type ScheduleFacilityView = {
+  id: number;
+  name: string;
+  sport: FacilityView["sport"];
+  slots: Array<{
+    time: string;
+    booking: null | { id:number; ref:string; customer:string; status:BookingView["status"] };
+  }>;
+};
+
+export type AuditLogView = {
+  id: number;
+  admin: string;
+  action: string;
+  entity: string;
+  details: string;
+  createdAt: string;
+};

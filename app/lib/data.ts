@@ -2,7 +2,7 @@ import "server-only";
 
 import type { RowDataPacket } from "mysql2";
 import { db } from "./db";
-import type { BookingView, FacilityAdminView, FacilityView, SlotStatus } from "./types";
+import type { AuditLogView, BookingView, FacilityAdminView, FacilityView, ScheduleFacilityView, SlotStatus } from "./types";
 
 type FacilityRow = RowDataPacket & {
   id: number; name: string; sport: FacilityView["sport"]; description: string;
@@ -53,13 +53,18 @@ export async function getAvailability(date: string, sport = "All"): Promise<Faci
 }
 
 export async function getPendingBookings(): Promise<BookingView[]> {
+  return getBookings("pending");
+}
+
+export async function getBookings(status = "all"): Promise<BookingView[]> {
+  const validStatus = ["pending", "confirmed", "rejected", "cancelled"].includes(status) ? status : "all";
   const [rows] = await db.query<(RowDataPacket & { id:number; reference:string; name:string; booking_date:string; start_time:string; customer_name:string; customer_contact:string; status:string })[]>(
     `SELECT b.id, b.reference, f.name, DATE_FORMAT(b.booking_date, '%Y-%m-%d') booking_date,
       TIME_FORMAT(b.start_time, '%H:%i') start_time, b.customer_name, b.customer_contact, b.status
      FROM bookings b JOIN facilities f ON f.id = b.facility_id
-     WHERE b.status = 'pending' ORDER BY b.created_at ASC`,
+     WHERE (? = 'all' OR b.status = ?) ORDER BY b.booking_date DESC, b.start_time DESC`, [validStatus, validStatus],
   );
-  return rows.map((row) => ({ id: row.id, ref: row.reference, facility: row.name, when: `${row.booking_date} ${row.start_time}`, customer: row.customer_name, contact: row.customer_contact, status: "Pending" }));
+  return rows.map((row) => ({ id: row.id, ref: row.reference, facility: row.name, when: `${row.booking_date} ${row.start_time}`, customer: row.customer_name, contact: row.customer_contact, status: `${row.status[0].toUpperCase()}${row.status.slice(1)}` as BookingView["status"] }));
 }
 
 export async function getDashboardStats() {
@@ -78,4 +83,29 @@ export async function getAdminFacilities(): Promise<FacilityAdminView[]> {
     `SELECT id, name, sport, ground_type, hourly_rate, status FROM facilities ORDER BY sort_order, name`,
   );
   return rows.map((row) => ({ id: row.id, name: row.name, sport: row.sport, ground: row.ground_type, rate: row.hourly_rate.toLocaleString("en-LK"), status: row.status }));
+}
+
+export async function getSchedule(date: string): Promise<ScheduleFacilityView[]> {
+  const facilities = await getAvailability(date);
+  const [rows] = await db.query<(RowDataPacket & { id:number; facility_id:number; reference:string; start_time:string; customer_name:string; status:string })[]>(
+    `SELECT id, facility_id, reference, TIME_FORMAT(start_time, '%H:%i') start_time, customer_name, status
+     FROM bookings WHERE booking_date = ? AND status IN ('pending','confirmed')`, [date],
+  );
+  const bookings = new Map(rows.map((row) => [`${row.facility_id}-${row.start_time}`, row]));
+  return facilities.map((facility) => ({
+    id: facility.id, name: facility.name, sport: facility.sport,
+    slots: facility.slots.map((slot) => {
+      const booking = bookings.get(`${facility.id}-${slot.time}`);
+      return { time:slot.time, booking:booking ? { id:booking.id, ref:booking.reference, customer:booking.customer_name, status:`${booking.status[0].toUpperCase()}${booking.status.slice(1)}` as BookingView["status"] } : null };
+    }),
+  }));
+}
+
+export async function getAuditLogs(): Promise<AuditLogView[]> {
+  const [rows] = await db.query<(RowDataPacket & { id:number; display_name:string | null; action:string; entity_type:string; entity_id:string | null; details:string | null; created_at:string })[]>(
+    `SELECT l.id, a.display_name, l.action, l.entity_type, l.entity_id,
+      COALESCE(CAST(l.details AS CHAR), '') details, DATE_FORMAT(l.created_at, '%Y-%m-%d %H:%i') created_at
+     FROM audit_logs l LEFT JOIN admins a ON a.id = l.admin_id ORDER BY l.created_at DESC LIMIT 200`,
+  );
+  return rows.map((row) => ({ id:row.id, admin:row.display_name ?? "System", action:row.action, entity:`${row.entity_type}${row.entity_id ? ` #${row.entity_id}` : ""}`, details:row.details ?? "", createdAt:row.created_at }));
 }
