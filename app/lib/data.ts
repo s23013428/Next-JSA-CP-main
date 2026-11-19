@@ -87,8 +87,8 @@ export async function getAdminFacilities(): Promise<FacilityAdminView[]> {
 
 export async function getSchedule(date: string): Promise<ScheduleFacilityView[]> {
   const facilities = await getAvailability(date);
-  const [rows] = await db.query<(RowDataPacket & { id:number; facility_id:number; reference:string; start_time:string; customer_name:string; status:string })[]>(
-    `SELECT id, facility_id, reference, TIME_FORMAT(start_time, '%H:%i') start_time, customer_name, status
+  const [rows] = await db.query<(RowDataPacket & { id:number; facility_id:number; reference:string; start_time:string; customer_name:string; customer_contact:string; status:string })[]>(
+    `SELECT id, facility_id, reference, TIME_FORMAT(start_time, '%H:%i') start_time, customer_name, customer_contact, status
      FROM bookings WHERE booking_date = ? AND status IN ('pending','confirmed')`, [date],
   );
   const bookings = new Map(rows.map((row) => [`${row.facility_id}-${row.start_time}`, row]));
@@ -96,7 +96,7 @@ export async function getSchedule(date: string): Promise<ScheduleFacilityView[]>
     id: facility.id, name: facility.name, sport: facility.sport,
     slots: facility.slots.map((slot) => {
       const booking = bookings.get(`${facility.id}-${slot.time}`);
-      return { time:slot.time, booking:booking ? { id:booking.id, ref:booking.reference, customer:booking.customer_name, status:`${booking.status[0].toUpperCase()}${booking.status.slice(1)}` as BookingView["status"] } : null };
+      return { time:slot.time, booking:booking ? { id:booking.id, ref:booking.reference, customer:booking.customer_name, contact:booking.customer_contact, status:`${booking.status[0].toUpperCase()}${booking.status.slice(1)}` as BookingView["status"] } : null };
     }),
   }));
 }

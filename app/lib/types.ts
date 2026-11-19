@@ -38,7 +38,7 @@ export type ScheduleFacilityView = {
   sport: FacilityView["sport"];
   slots: Array<{
     time: string;
-    booking: null | { id:number; ref:string; customer:string; status:BookingView["status"] };
+    booking: null | { id:number; ref:string; customer:string; contact:string; status:BookingView["status"] };
   }>;
 };
 

@@ -1,4 +1,5 @@
 "use server";
+import { randomInt } from "node:crypto";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -45,6 +46,43 @@ export async function loadSchedule(date: string) {
 export async function loadAuditLog() {
   const admin = await requireAdmin();
   return { admin, logs:await getAuditLogs() };
+}
+
+export async function saveScheduleBooking(input: { id?:number; facilityId:number; date:string; time:string; customer:string; contact:string; status:"pending" | "confirmed" | "cancelled" }): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const customer = input.customer.trim(); const contact = input.contact.trim();
+  if (!Number.isInteger(input.facilityId) || !/^\d{4}-\d{2}-\d{2}$/.test(input.date) || !/^\d{2}:\d{2}$/.test(input.time) || customer.length < 2 || customer.length > 140 || contact.length < 5 || contact.length > 190 || !["pending", "confirmed", "cancelled"].includes(input.status)) {
+    return { ok:false, message:"Enter a valid facility, date, time, customer and contact." };
+  }
+  try {
+    await transaction(async (connection) => {
+      const [facilities] = await connection.query<(RowDataPacket & { slot_minutes:number; opening_time:string; closing_time:string; status:string })[]>("SELECT slot_minutes, opening_time, closing_time, status FROM facilities WHERE id = ? FOR UPDATE", [input.facilityId]);
+      const facility = facilities[0];
+      if (!facility || facility.status === "inactive") throw new Error("That facility is not available.");
+      const toMinutes = (value:string) => { const [hour, minute] = value.split(":").map(Number); return hour * 60 + minute; };
+      const selected = toMinutes(input.time); const opening = toMinutes(facility.opening_time); const closing = toMinutes(facility.closing_time);
+      if (selected < opening || selected >= closing || (selected - opening) % facility.slot_minutes !== 0) throw new Error("Choose a valid facility time slot.");
+
+      let bookingId = input.id;
+      if (bookingId) {
+        const [existing] = await connection.query<(RowDataPacket & { id:number })[]>("SELECT id FROM bookings WHERE id = ? FOR UPDATE", [bookingId]);
+        if (!existing[0]) throw new Error("This schedule entry no longer exists.");
+        await connection.execute("DELETE FROM booking_slots WHERE booking_id = ?", [bookingId]);
+        await connection.execute("UPDATE bookings SET facility_id = ?, booking_date = ?, start_time = ?, end_time = ADDTIME(?, SEC_TO_TIME(? * 60)), customer_name = ?, customer_contact = ?, status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?", [input.facilityId, input.date, input.time, input.time, facility.slot_minutes, customer, contact, input.status, admin.id, bookingId]);
+      } else {
+        const reference = `JSA-${Date.now().toString(36).toUpperCase()}${randomInt(100, 999)}`;
+        const [result] = await connection.execute<ResultSetHeader>("INSERT INTO bookings (reference, facility_id, booking_date, start_time, end_time, customer_name, customer_contact, status, reviewed_by, reviewed_at) VALUES (?, ?, ?, ?, ADDTIME(?, SEC_TO_TIME(? * 60)), ?, ?, ?, ?, NOW())", [reference, input.facilityId, input.date, input.time, input.time, facility.slot_minutes, customer, contact, input.status, admin.id]);
+        bookingId = result.insertId;
+      }
+      if (input.status !== "cancelled") await connection.execute("INSERT INTO booking_slots (booking_id, facility_id, booking_date, start_time) VALUES (?, ?, ?, ?)", [bookingId, input.facilityId, input.date, input.time]);
+      await connection.execute("INSERT INTO audit_logs (admin_id, action, entity_type, entity_id, details) VALUES (?, ?, 'booking', ?, JSON_OBJECT('date', ?, 'time', ?, 'status', ?))", [admin.id, input.id ? "schedule.updated" : "schedule.created", String(bookingId), input.date, input.time, input.status]);
+    });
+  } catch (error) {
+    const code = (error as { code?:string }).code;
+    return { ok:false, message:code === "ER_DUP_ENTRY" ? "That facility time is already reserved." : error instanceof Error ? error.message : "Unable to save the schedule entry." };
+  }
+  revalidatePath("/"); revalidatePath("/admin"); revalidatePath("/admin/bookings"); revalidatePath("/admin/schedule"); revalidatePath("/admin/audit");
+  return { ok:true, message:input.id ? "Schedule entry updated." : "Schedule entry added." };
 }
 
 export async function reviewBooking(bookingId: number, decision: "confirmed" | "rejected"): Promise<ActionState> {
