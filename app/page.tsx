@@ -1,51 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { checkAvailability, createBooking } from "./actions";
+import type { FacilityView } from "./lib/types";
 import styles from "./page.module.css";
-
-type Slot = {
-  time: string;
-  status: "Available" | "Booked" | "Maintenance";
-};
-
-type Facility = {
-  name: string;
-  sport: string;
-  rate: string;
-  description: string;
-  ground: string;
-  slots: Slot[];
-};
-
-const slots = ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00"];
-
-const facilities: Facility[] = [
-  {
-    name: "Badminton Court 1",
-    sport: "Badminton",
-    rate: "LKR 2,500 / hour",
-    description: "Jaffna Sports Academy, Jaffna",
-    ground: "Independent indoor court",
-    slots: slots.map((time, index) => ({ time, status: index === 3 || index === 9 ? "Booked" : "Available" })),
-  },
-  {
-    name: "Cricket Net 1",
-    sport: "Cricket",
-    rate: "LKR 3,000 / hour",
-    description: "Jaffna Sports Academy, Jaffna",
-    ground: "Shared turf · book any cricket net for this time slot",
-    slots: slots.map((time, index) => ({ time, status: index === 5 ? "Booked" : "Available" })),
-  },
-  {
-    name: "Football Play Area",
-    sport: "Football",
-    rate: "LKR 4,000 / hour",
-    description: "Jaffna Sports Academy, Jaffna",
-    ground: "Shared turf · football bookings reserve the cricket nets",
-    slots: slots.map((time, index) => ({ time, status: index === 2 || index === 10 ? "Booked" : "Available" })),
-  },
-];
 
 function SportIcon({ sport }: { sport: string }) {
   if (sport === "Badminton") {
@@ -61,21 +20,48 @@ function SportIcon({ sport }: { sport: string }) {
 
 export default function Home() {
   const [sport, setSport] = useState("All");
-  const [date, setDate] = useState("2026-10-09");
-  const [selected, setSelected] = useState<{ facility: Facility; time: string } | null>(null);
+  const [date, setDate] = useState("");
+  const [facilities, setFacilities] = useState<FacilityView[]>([]);
+  const [selected, setSelected] = useState<{ facility: FacilityView; time: string } | null>(null);
   const [notice, setNotice] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerContact, setCustomerContact] = useState("");
+  const [isPending, startTransition] = useTransition();
 
-  const visibleFacilities = sport === "All" ? facilities : facilities.filter((facility) => facility.sport === sport);
+  useEffect(() => {
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone:"Asia/Colombo", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
+    startTransition(async () => {
+      setDate(today);
+      const result = await checkAvailability(today, "All");
+      if (result.ok) setFacilities(result.facilities);
+    });
+  }, []);
 
-  function chooseSlot(facility: Facility, slot: Slot) {
+  function chooseSlot(facility: FacilityView, slot: FacilityView["slots"][number]) {
     if (slot.status !== "Available") return;
     setSelected({ facility, time: slot.time });
     setNotice("");
   }
 
+  function loadAvailability() {
+    startTransition(async () => {
+      const result = await checkAvailability(date, sport);
+      setFacilities(result.facilities);
+      setNotice(result.ok ? `Showing live availability for ${date}.` : result.message);
+    });
+  }
+
   function submitBooking() {
-    setNotice(`Booking request for ${selected?.facility.name} at ${selected?.time} has been submitted.`);
-    setSelected(null);
+    if (!selected) return;
+    startTransition(async () => {
+      const result = await createBooking({ facilityId:selected.facility.id, date, time:selected.time, name:customerName, contact:customerContact });
+      setNotice(result.message);
+      if (result.ok) {
+        setCustomerName(""); setCustomerContact(""); setSelected(null);
+        const availability = await checkAvailability(date, sport);
+        if (availability.ok) setFacilities(availability.facilities);
+      }
+    });
   }
 
   return (
@@ -128,7 +114,7 @@ export default function Home() {
                   <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
                 </div>
               </label>
-              <button className={styles.searchButton} type="button" onClick={() => setNotice(`Showing availability for ${date}.`)}>Check availability</button>
+              <button className={styles.searchButton} type="button" onClick={loadAvailability} disabled={isPending}>{isPending ? "Checking..." : "Check availability"}</button>
             </div>
             <p className={styles.searchHint}><span>✓</span> Free cancellation before confirmation</p>
           </div>
@@ -144,8 +130,8 @@ export default function Home() {
         {notice && <div className={styles.notice} role="status"><span>✓</span>{notice}</div>}
 
         <div className={styles.facilityList}>
-          {visibleFacilities.map((facility) => (
-            <article className={styles.facilityCard} key={facility.name}>
+          {facilities.map((facility) => (
+            <article className={styles.facilityCard} key={facility.id}>
               <header className={styles.facilityHeader}>
                 <div className={styles.facilityIdentity}>
                   <span className={styles.sportIcon}><SportIcon sport={facility.sport} /></span>
@@ -159,7 +145,7 @@ export default function Home() {
 
               <div className={styles.facilityToolbar}>
                 <p><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s7-5 7-12a7 7 0 0 0-14 0c0 7 7 12 7 12Z" /><circle cx="12" cy="9" r="2" /></svg>{facility.ground}</p>
-                <div><a href="https://wa.me/94772234567" target="_blank" rel="noreferrer">WhatsApp</a><a href="#details">Details</a><a href="#map">Map</a></div>
+                <div><a href={`https://wa.me/${facility.whatsapp}`} target="_blank" rel="noreferrer">WhatsApp</a><a href="#details">Details</a><a href="#map">Map</a></div>
               </div>
 
               <div className={styles.slotGrid}>
@@ -171,7 +157,7 @@ export default function Home() {
               </div>
             </article>
           ))}
-          {visibleFacilities.length === 0 && <div className={styles.emptyState}>No facilities found for this sport.</div>}
+          {!isPending && facilities.length === 0 && <div className={styles.emptyState}>No facilities found for this sport.</div>}
         </div>
       </section>
 
@@ -194,9 +180,9 @@ export default function Home() {
             <span className={styles.sectionKicker}>Booking request</span>
             <h2 id="booking-title">{selected.facility.name}</h2>
             <div className={styles.bookingSummary}><span><small>Date</small>{date}</span><span><small>Time</small>{selected.time}</span><span><small>Rate</small>{selected.facility.rate}</span></div>
-            <label className={styles.modalLabel}>Your name<input placeholder="Enter your name" /></label>
-            <label className={styles.modalLabel}>Phone or email<input placeholder="How can we contact you?" /></label>
-            <button className={styles.submitButton} type="button" onClick={submitBooking}>Send booking request</button>
+            <label className={styles.modalLabel}>Your name<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Enter your name" required /></label>
+            <label className={styles.modalLabel}>Phone or email<input value={customerContact} onChange={(event) => setCustomerContact(event.target.value)} placeholder="How can we contact you?" required /></label>
+            <button className={styles.submitButton} type="button" onClick={submitBooking} disabled={isPending}>{isPending ? "Sending request..." : "Send booking request"}</button>
             <small className={styles.modalNote}>No payment is taken online. The academy will contact you to confirm.</small>
           </div>
         </div>

@@ -8,6 +8,7 @@ import styles from "./admin.module.css";
 type AdminSection = "overview" | "bookings" | "schedule" | "facilities" | "audit";
 
 type AdminShellProps = {
+  admin?: { name:string; email:string };
   active: AdminSection;
   eyebrow: string;
   title: string;
@@ -39,7 +40,7 @@ function NavIcon({ section }: { section: AdminSection }) {
   );
 }
 
-export function AdminShell({ active, eyebrow, title, description, children }: AdminShellProps) {
+export function AdminShell({ admin = { name:"Administrator", email:"demo@gmail.com" }, active, eyebrow, title, description, children }: AdminShellProps) {
   return (
     <main className={styles.shell}>
       <aside className={styles.sidebar}>
@@ -81,7 +82,7 @@ export function AdminShell({ active, eyebrow, title, description, children }: Ad
             </button>
             <div className={styles.userProfile}>
               <span className={styles.avatar}>AD</span>
-              <div><strong>Administrator</strong><span>admin@jsaplay.lk</span></div>
+              <div><strong>{admin.name}</strong><span>{admin.email}</span></div>
             </div>
           </div>
         </header>

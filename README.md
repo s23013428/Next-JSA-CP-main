@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JSA Play
 
-## Getting Started
+JSA Play is a Next.js booking and management application for Jaffna Sports Academy. It uses MariaDB/MySQL for facilities, live slot availability, booking requests, administrators, sessions, and audit records.
 
-First, run the development server:
+## Local setup
+
+1. Start Apache and MySQL in XAMPP.
+2. Create an empty database named `ticket_jsa` in phpMyAdmin.
+3. Copy `.env.example` to `.env.local` and update the database credentials if your MySQL account differs from XAMPP's default `root` account.
+4. Install dependencies and initialize the database:
+
+```bash
+npm install
+npm run db:setup
+```
+
+5. Start the application:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The administration portal is available at [http://localhost:3000/admin](http://localhost:3000/admin).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Demo administrator
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Email: `demo@gmail.com`
+- Password: `123456`
 
-## Learn More
+The password is stored as a bcrypt hash in the database. Authentication creates an HTTP-only, eight-hour database-backed session.
 
-To learn more about Next.js, take a look at the following resources:
+## Database model
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `admins`: administrator accounts and password hashes
+- `admin_sessions`: expiring authenticated sessions
+- `facilities`: sports facilities, rates, hours, and availability status
+- `bookings`: customer booking requests and review state
+- `booking_slots`: unique reserved slots that prevent double-booking
+- `audit_logs`: administrator actions for operational traceability
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The idempotent schema and seed data are stored in `db/schema.sql`. Re-running `npm run db:setup` keeps existing operational data and restores required seed records without dropping tables.
 
-## Deploy on Vercel
+## Validation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run lint
+npm run build
+```
