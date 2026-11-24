@@ -30,7 +30,7 @@ export function RegisterForm({ nextPath }: { nextPath:string }) {
       <label>Full name<input name="name" autoComplete="name" placeholder="Your full name" required /></label>
       <label>Email address<input name="email" type="email" autoComplete="email" placeholder="you@example.com" required /></label>
       <label>Phone number<input name="phone" type="tel" autoComplete="tel" placeholder="+94 77 123 4567" required /></label>
-      <label>Password<input name="password" type="password" autoComplete="new-password" minLength={8} placeholder="8+ characters, including a number" required /></label>
+      <label>Password<input name="password" type="password" autoComplete="new-password" placeholder="Choose any password" required /></label>
       <button type="submit" disabled={pending}>{pending ? "Creating account..." : "Create account"}</button>
       <p>Already have an account? <Link href={`/account/login?next=${encodeURIComponent(nextPath)}`}>Sign in</Link></p>
     </form>

@@ -24,7 +24,7 @@ export async function registerUser(_state:UserAuthState, formData:FormData): Pro
   if (name.length < 2 || name.length > 140) return { error:"Enter your full name." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error:"Enter a valid email address." };
   if (phone.length < 7 || phone.length > 40) return { error:"Enter a valid phone number." };
-  if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) return { error:"Password must be at least 8 characters and include a letter and number." };
+  if (!password) return { error:"Enter a password." };
   try {
     const [result] = await db.execute<ResultSetHeader>("INSERT INTO users (email, password_hash, full_name, phone) VALUES (?, ?, ?, ?)", [email, await bcrypt.hash(password, 12), name, phone]);
     await setUserCookie(result.insertId);
