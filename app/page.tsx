@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { checkAvailability, createBooking } from "./actions";
+import { getBookingViewer } from "./account/actions";
 import type { FacilityView } from "./lib/types";
 import styles from "./page.module.css";
 
@@ -19,26 +21,31 @@ function SportIcon({ sport }: { sport: string }) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [sport, setSport] = useState("All");
   const [date, setDate] = useState("");
   const [facilities, setFacilities] = useState<FacilityView[]>([]);
   const [selected, setSelected] = useState<{ facility: FacilityView; time: string } | null>(null);
   const [notice, setNotice] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerContact, setCustomerContact] = useState("");
+  const [viewer, setViewer] = useState<{ id:number; name:string; email:string; phone:string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     const today = new Intl.DateTimeFormat("en-CA", { timeZone:"Asia/Colombo", year:"numeric", month:"2-digit", day:"2-digit" }).format(new Date());
     startTransition(async () => {
       setDate(today);
-      const result = await checkAvailability(today, "All");
+      const [result, currentViewer] = await Promise.all([checkAvailability(today, "All"), getBookingViewer()]);
       if (result.ok) setFacilities(result.facilities);
+      setViewer(currentViewer);
     });
   }, []);
 
   function chooseSlot(facility: FacilityView, slot: FacilityView["slots"][number]) {
     if (slot.status !== "Available") return;
+    if (!viewer) {
+      router.push("/account/login?next=/");
+      return;
+    }
     setSelected({ facility, time: slot.time });
     setNotice("");
   }
@@ -54,10 +61,14 @@ export default function Home() {
   function submitBooking() {
     if (!selected) return;
     startTransition(async () => {
-      const result = await createBooking({ facilityId:selected.facility.id, date, time:selected.time, name:customerName, contact:customerContact });
+      const result = await createBooking({ facilityId:selected.facility.id, date, time:selected.time });
       setNotice(result.message);
+      if (result.requiresAuth) {
+        router.push("/account/login?next=/");
+        return;
+      }
       if (result.ok) {
-        setCustomerName(""); setCustomerContact(""); setSelected(null);
+        setSelected(null);
         const availability = await checkAvailability(date, sport);
         if (availability.ok) setFacilities(availability.facilities);
       }
@@ -75,6 +86,7 @@ export default function Home() {
           <nav className={styles.navigation} aria-label="Main navigation">
             <a className={styles.navActive} href="#availability">Book a slot</a>
             <a href="#facilities">Facilities</a>
+            <Link href={viewer ? "/account" : "/account/login"}>{viewer ? "My bookings" : "Sign in"}</Link>
             <Link className={styles.adminLink} href="/admin">Admin login</Link>
           </nav>
         </div>
@@ -87,7 +99,7 @@ export default function Home() {
             <span className={styles.heroBadge}><i /> Open daily · 6:00–20:00</span>
             <p className={styles.kicker}>Jaffna Sports Academy</p>
             <h1>Your next game<br />starts here.</h1>
-            <p className={styles.heroText}>Find an open court, choose your hour and send a booking request in less than a minute. No account required.</p>
+            <p className={styles.heroText}>Find an open court, choose your hour and reserve it from your JSA Play account in less than a minute.</p>
             <div className={styles.heroFacts}>
               <span><strong>3</strong> sports</span>
               <span><strong>14</strong> daily slots</span>
@@ -116,7 +128,7 @@ export default function Home() {
               </label>
               <button className={styles.searchButton} type="button" onClick={loadAvailability} disabled={isPending}>{isPending ? "Checking..." : "Check availability"}</button>
             </div>
-            <p className={styles.searchHint}><span>✓</span> Free cancellation before confirmation</p>
+            <p className={styles.searchHint}><span>✓</span> Account required · Cancel until 15 minutes before start</p>
           </div>
         </div>
       </section>
@@ -180,8 +192,8 @@ export default function Home() {
             <span className={styles.sectionKicker}>Booking request</span>
             <h2 id="booking-title">{selected.facility.name}</h2>
             <div className={styles.bookingSummary}><span><small>Date</small>{date}</span><span><small>Time</small>{selected.time}</span><span><small>Rate</small>{selected.facility.rate}</span></div>
-            <label className={styles.modalLabel}>Your name<input value={customerName} onChange={(event) => setCustomerName(event.target.value)} placeholder="Enter your name" required /></label>
-            <label className={styles.modalLabel}>Phone or email<input value={customerContact} onChange={(event) => setCustomerContact(event.target.value)} placeholder="How can we contact you?" required /></label>
+            <div className={styles.bookingAccount}><small>Booking for</small><strong>{viewer?.name}</strong><span>{viewer?.phone || viewer?.email}</span></div>
+            <div className={styles.cancellationAlert} role="note"><strong>15-minute cancellation policy</strong><span>You can cancel this booking from My bookings until 15 minutes before the scheduled start time. After that deadline, contact the academy.</span></div>
             <button className={styles.submitButton} type="button" onClick={submitBooking} disabled={isPending}>{isPending ? "Sending request..." : "Send booking request"}</button>
             <small className={styles.modalNote}>No payment is taken online. The academy will contact you to confirm.</small>
           </div>

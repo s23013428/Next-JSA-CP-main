@@ -26,6 +26,31 @@ CREATE TABLE IF NOT EXISTS admin_sessions (
   CONSTRAINT fk_admin_sessions_admin FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  email VARCHAR(190) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  full_name VARCHAR(140) NOT NULL,
+  phone VARCHAR(40) NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_users_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id CHAR(36) NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token_hash CHAR(64) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_user_sessions_token_hash (token_hash),
+  KEY idx_user_sessions_expires (expires_at),
+  CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS facilities (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   slug VARCHAR(190) NOT NULL,
@@ -50,6 +75,7 @@ CREATE TABLE IF NOT EXISTS facilities (
 
 CREATE TABLE IF NOT EXISTS bookings (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NULL,
   reference VARCHAR(24) NOT NULL,
   facility_id BIGINT UNSIGNED NOT NULL,
   booking_date DATE NOT NULL,
@@ -67,9 +93,14 @@ CREATE TABLE IF NOT EXISTS bookings (
   UNIQUE KEY uq_bookings_reference (reference),
   KEY idx_bookings_date_status (booking_date, status),
   KEY idx_bookings_facility_date (facility_id, booking_date),
+  KEY idx_bookings_user_date (user_id, booking_date),
+  CONSTRAINT fk_bookings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   CONSTRAINT fk_bookings_facility FOREIGN KEY (facility_id) REFERENCES facilities(id),
   CONSTRAINT fk_bookings_reviewer FOREIGN KEY (reviewed_by) REFERENCES admins(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS user_id BIGINT UNSIGNED NULL AFTER id;
+ALTER TABLE bookings ADD INDEX IF NOT EXISTS idx_bookings_user_date (user_id, booking_date);
 
 CREATE TABLE IF NOT EXISTS booking_slots (
   booking_id BIGINT UNSIGNED NOT NULL,

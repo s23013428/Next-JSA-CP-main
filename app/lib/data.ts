@@ -20,6 +20,10 @@ function minutesToTime(value: number) {
 }
 
 export async function getAvailability(date: string, sport = "All"): Promise<FacilityView[]> {
+  const now = new Date();
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone:"Asia/Colombo", year:"numeric", month:"2-digit", day:"2-digit" }).format(now);
+  const timeParts = new Intl.DateTimeFormat("en-GB", { timeZone:"Asia/Colombo", hour:"2-digit", minute:"2-digit", hour12:false }).formatToParts(now);
+  const currentMinute = Number(timeParts.find((part) => part.type === "hour")?.value ?? 0) * 60 + Number(timeParts.find((part) => part.type === "minute")?.value ?? 0);
   const params: Array<string> = [date];
   let sportClause = "";
   if (["Badminton", "Cricket", "Football"].includes(sport)) {
@@ -40,7 +44,8 @@ export async function getAvailability(date: string, sport = "All"): Promise<Faci
     const slots: FacilityView["slots"] = [];
     for (let minute = timeToMinutes(row.opening_time); minute < timeToMinutes(row.closing_time); minute += row.slot_minutes) {
       const time = minutesToTime(minute);
-      const status: SlotStatus = row.status === "maintenance" ? "Maintenance" : booked.has(time) ? "Booked" : "Available";
+      const isPast = date < today || (date === today && minute <= currentMinute);
+      const status: SlotStatus = row.status === "maintenance" ? "Maintenance" : booked.has(time) ? "Booked" : isPast ? "Unavailable" : "Available";
       slots.push({ time, status });
     }
     return {

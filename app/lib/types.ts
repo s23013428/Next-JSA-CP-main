@@ -1,4 +1,4 @@
-export type SlotStatus = "Available" | "Booked" | "Maintenance";
+export type SlotStatus = "Available" | "Booked" | "Maintenance" | "Unavailable";
 
 export type FacilityView = {
   id: number;
@@ -49,4 +49,17 @@ export type AuditLogView = {
   entity: string;
   details: string;
   createdAt: string;
+};
+
+export type UserBookingView = {
+  id: number;
+  reference: string;
+  facility: string;
+  sport: FacilityView["sport"];
+  date: string;
+  time: string;
+  status: BookingView["status"];
+  canCancel: boolean;
+  cancelBy: string;
+  isPast: boolean;
 };

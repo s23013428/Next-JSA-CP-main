@@ -14,6 +14,13 @@ const connection = await mysql.createConnection({
 try {
   const schema = await readFile(new URL("../db/schema.sql", import.meta.url), "utf8");
   await connection.query(schema);
+  const [constraints] = await connection.query(
+    "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE CONSTRAINT_SCHEMA = ? AND TABLE_NAME = 'bookings' AND CONSTRAINT_NAME = 'fk_bookings_user'",
+    [database],
+  );
+  if (constraints.length === 0) {
+    await connection.query("ALTER TABLE bookings ADD CONSTRAINT fk_bookings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL");
+  }
   console.log(`Database ${database} is ready.`);
 } finally {
   await connection.end();

@@ -20,7 +20,14 @@ npm run db:setup
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The administration portal is available at [http://localhost:3000/admin](http://localhost:3000/admin).
+Open [http://localhost:3000](http://localhost:3000). Customers create an account before reserving a slot and manage their bookings at [http://localhost:3000/account](http://localhost:3000/account). The administration portal is available at [http://localhost:3000/admin](http://localhost:3000/admin).
+
+## Customer booking workflow
+
+1. Create a customer account or sign in.
+2. Choose a future facility slot and submit the booking request.
+3. Follow pending, confirmed, completed, rejected, and cancelled bookings from **My bookings**.
+4. Cancel a pending or confirmed booking online no later than 15 minutes before its scheduled start. The server enforces this cutoff and releases the slot after a successful cancellation.
 
 ## Demo administrator
 
@@ -33,8 +40,10 @@ The password is stored as a bcrypt hash in the database. Authentication creates 
 
 - `admins`: administrator accounts and password hashes
 - `admin_sessions`: expiring authenticated sessions
+- `users`: customer profiles and password hashes
+- `user_sessions`: expiring, database-backed customer sessions
 - `facilities`: sports facilities, rates, hours, and availability status
-- `bookings`: customer booking requests and review state
+- `bookings`: customer-owned booking requests and review state
 - `booking_slots`: unique reserved slots that prevent double-booking
 - `audit_logs`: administrator actions for operational traceability
 
